@@ -31,3 +31,5 @@ data/vavam-driver/*
 # which does not require uv.lock.
 **/uv.lock
 .worktrees/
+
+.cursor/hooks/state/

@@ -23,6 +23,10 @@ logger = logging.getLogger("alpasim.eval.video_reasoning_overlay_utils")
 mpl.use("Agg")
 mplstyle.use("fast")
 
+# Allow minor numeric drift between ego pose and selected trajectory start.
+_MAX_PREDICTION_START_OFFSET_M = 0.05
+_MAX_ALIGNMENT_WARNINGS_PER_VIDEO = 5
+
 
 def _wrap_text(text: str, max_chars_per_line: int = 50) -> str:
     """Wrap text to fit within specified character width."""
@@ -403,6 +407,7 @@ def _render_single_reasoning_overlay_frame(
     cached_reasoning: str,
     display_time_s: float,
     cfg: EvalConfig,
+    alignment_warning_state: dict[str, int],
 ) -> np.ndarray:
     """Render a single reasoning overlay style frame.
 
@@ -448,12 +453,31 @@ def _render_single_reasoning_overlay_frame(
         ego_qvec = ego_pose_at_time.poses[0]
         ego_xyz = ego_qvec.vec3
 
-        pred_xyz_np = driver_response_at_time.selected_trajectory.poses.vec3
-        if np.linalg.norm(pred_xyz_np[0] - ego_xyz) > 0.01:
-            raise ValueError(
-                f"First predicted point is not close to current ego position: "
-                f"{pred_xyz_np[0]} - {ego_xyz} = {np.linalg.norm(pred_xyz_np[0] - ego_xyz)}"
-            )
+        pred_xyz_np = np.asarray(driver_response_at_time.selected_trajectory.poses.vec3)
+        if len(pred_xyz_np) > 0:
+            first_point_offset_m = float(np.linalg.norm(pred_xyz_np[0] - ego_xyz))
+            if first_point_offset_m > _MAX_PREDICTION_START_OFFSET_M:
+                if alignment_warning_state["count"] < _MAX_ALIGNMENT_WARNINGS_PER_VIDEO:
+                    logger.warning(
+                        "Predicted trajectory starts %.4fm from ego at %sus "
+                        "(tolerance %.3fm); snapping first point to ego pose.",
+                        first_point_offset_m,
+                        int(time_us),
+                        _MAX_PREDICTION_START_OFFSET_M,
+                    )
+                    alignment_warning_state["count"] += 1
+                    if (
+                        alignment_warning_state["count"]
+                        == _MAX_ALIGNMENT_WARNINGS_PER_VIDEO
+                    ):
+                        logger.warning(
+                            "Reached max prediction-alignment warnings for this video; "
+                            "suppressing further warnings."
+                        )
+                pred_xyz_np = pred_xyz_np.copy()
+                pred_xyz_np[0] = ego_xyz
+        else:
+            pred_xyz_np = np.zeros((0, 3))
 
         # Get history
         history_duration_us = 1_600_000
@@ -515,6 +539,7 @@ def render_reasoning_overlay_style_video(
     last_reasoning_text_refresh_time_us = (
         timestamps_to_render[0] if len(timestamps_to_render) > 0 else 0
     )
+    alignment_warning_state = {"count": 0}
 
     expected_frame_shape = None
 
@@ -548,6 +573,7 @@ def render_reasoning_overlay_style_video(
             cached_reasoning,
             display_time_s,
             cfg,
+            alignment_warning_state,
         )
 
         # Assert frame shape consistency

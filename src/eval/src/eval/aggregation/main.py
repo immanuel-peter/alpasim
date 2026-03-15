@@ -384,6 +384,7 @@ def _aggregate_eval_videos(
 
     # Note generating combined video. Instead create subfolders for conditions
     # with links to the video in "all"
+    missing_video_targets: set[str] = set()
     for condition_name, condition in conditions.items():
         filtered_df = processed_dfs.df_wide_avg_t.filter(condition)
         condition_folder = target_video_dir / "violations" / condition_name
@@ -400,6 +401,15 @@ def _aggregate_eval_videos(
                     camera_id=cfg.video.camera_id_to_render,
                     layout_id=layout_id,
                 )
+                source_video_path = all_videos_dir / video_file_name
+                if not source_video_path.exists():
+                    if video_file_name not in missing_video_targets:
+                        logger.warning(
+                            "Skipping violation symlink for missing video target: %s",
+                            source_video_path,
+                        )
+                        missing_video_targets.add(video_file_name)
+                    continue
                 (condition_folder / video_file_name).unlink(missing_ok=True)
                 # Create a relative symlink to the video in all_videos_dir to ensure the link will be
                 # valid even when running with different mount points.
