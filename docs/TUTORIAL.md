@@ -34,6 +34,15 @@ Let's start by executing a run with default settings.
    - `source setup_local_env.sh`
    - This will compile protos, download an example driver model, ensure you have a valid Hugging
      Face token, and install the `alpasim_wizard` command line tool.
+1. Run the following one-time setup steps required by the default Docker workflow:
+   ```bash
+   # 1) Ensure HF env is present (needed for scene/model downloads)
+   export HF_TOKEN="<your_hf_token>"
+   # 2) Download VaVAM assets required by default driver
+   bash data/download_vavam_assets.sh --model vavam-b
+   ```
+   If you need to create a Hugging Face token, see the Hugging Face access section in
+   [onboarding](ONBOARDING.md).
 1. Run the wizard to create the necessary config files, download the scene (if necessary), and run a
    simulation _ `uv run alpasim_wizard +deploy=local wizard.log_dir=$PWD/tutorial` _ This will create a
    `tutorial/` directory with all necessary config files and run the simulation
