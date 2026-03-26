@@ -12,6 +12,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
   "vam",
   "alpamayo_r1",
+  "alpamayo1_5",
   "einops",
   "numpy",
   "opencv-python-headless",
@@ -33,12 +34,14 @@ alpasim_driver_main = "alpasim_driver.main:main"
 
 [project.entry-points."alpasim.models"]
 ar1 = "alpasim_driver.models.ar1_model:AR1Model"
+alpamayo1_5 = "alpasim_driver.models.alpamayo1_5_model:Alpamayo1_5Model"
 vam = "alpasim_driver.models.vam_model:VAMModel"
 manual = "alpasim_driver.models.manual_model:ManualModel"
 
 [tool.uv.sources]
 vam = { git = "https://github.com/valeoai/VideoActionModel.git" }
 alpamayo_r1 = { git = "https://github.com/NVlabs/alpamayo.git", rev = "74750b0bd86605ced9faed9fe83434b07f95e9dc"}
+alpamayo1_5 = { git = "https://github.com/NVlabs/alpamayo1.5.git", rev = "2eff703" }
 alpasim-grpc = { workspace = true }
 alpasim_utils = { workspace = true }
 alpasim_plugins = { workspace = true }

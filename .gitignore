@@ -17,6 +17,7 @@ __pycache__/
 .zed
 CLAUDE.md
 .cursor/plans/archived/
+.cursor/hooks/state/
 
 **/*.egg-info
 

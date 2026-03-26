@@ -3,6 +3,7 @@
 
 """Model abstraction layer for trajectory prediction models."""
 
+from .alpamayo1_5_model import Alpamayo1_5Model
 from .ar1_model import AR1Model
 from .base import (
     BaseTrajectoryModel,
@@ -16,6 +17,7 @@ from .manual_model import ManualModel
 from .vam_model import VAMModel
 
 __all__ = [
+    "Alpamayo1_5Model",
     "AR1Model",
     "BaseTrajectoryModel",
     "CameraFrame",
