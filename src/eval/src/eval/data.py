@@ -1747,6 +1747,13 @@ class ScenarioEvalInput:
     # Routes data (optional)
     routes: Optional[Routes] = None
 
+    # Duration during which the runtime forced the ego to follow the recorded
+    # ground truth trajectory.  Pulled from RolloutMetadata.force_gt_duration.
+    # Used by the aggregation pipeline to skip prerun + force-gt timesteps
+    # when computing the first "driven" timestamp.  ``None`` for ground-truth
+    # baseline runs where this filtering should not apply.
+    force_gt_duration_us: Optional[int] = None
+
 
 @dataclasses.dataclass
 class SimulationResult:
@@ -1778,6 +1785,26 @@ class SimulationResult:
     actor_polygons: ActorPolygons
     cameras: Cameras
     routes: Routes
+    # See ScenarioEvalInput.force_gt_duration_us.
+    force_gt_duration_us: Optional[int] = None
+
+    @property
+    def first_driven_timestamp_us(self) -> Optional[int]:
+        """Earliest timestamp at which the ego is under policy control.
+
+        Computed as ``start_timestamp_us + force_gt_duration_us +
+        control_timestep_us`` — i.e. one control step past the last force-gt
+        step.  Returns ``None`` when ``force_gt_duration_us`` was not
+        propagated (e.g. ground-truth baseline runs), in which case the
+        aggregation pipeline will not filter any timesteps.
+        """
+        if self.force_gt_duration_us is None:
+            return None
+        return (
+            self.session_metadata.start_timestamp_us
+            + self.force_gt_duration_us
+            + self.session_metadata.control_timestep_us
+        )
 
     @property
     def timestamps_us(self) -> np.ndarray:
@@ -1879,6 +1906,7 @@ class SimulationResult:
             actor_polygons=actor_polygons,
             cameras=cameras,
             routes=routes,
+            force_gt_duration_us=scenario_input.force_gt_duration_us,
         )
 
 
@@ -1981,6 +2009,7 @@ def create_metrics_dataframe(
     rollout_id: str,
     run_uuid: str,
     run_name: str,
+    first_driven_timestamp_us: Optional[int] = None,
 ) -> pl.DataFrame:
     """
     Create a polars DataFrame from metric results with run metadata.
@@ -1995,10 +2024,16 @@ def create_metrics_dataframe(
         rollout_id: Rollout/session identifier.
         run_uuid: Unique identifier for the evaluation run.
         run_name: Human-readable name for the evaluation run.
+        first_driven_timestamp_us: Earliest timestamp at which the ego is
+            considered to be under policy control.  If provided, stored as a
+            constant column so aggregation modifiers can filter out prerun
+            / warmup timesteps.  Leave as ``None`` for ground-truth baseline
+            runs where no such filtering is desired.
 
     Returns:
         DataFrame with columns: name, timestamps_us, values, valid,
-        time_aggregation, clipgt_id, batch_id, rollout_id, run_uuid, run_name
+        time_aggregation, clipgt_id, batch_id, rollout_id, run_uuid, run_name,
+        and (optionally) first_driven_timestamp_us.
     """
     dictionaries = []
     for mr in metric_results:
@@ -2020,6 +2055,8 @@ def create_metrics_dataframe(
                 "run_name": run_name,
             }
         )
+        if first_driven_timestamp_us is not None:
+            mr_dict["first_driven_timestamp_us"] = int(first_driven_timestamp_us)
         dictionaries.append(mr_dict)
 
     if not dictionaries:
