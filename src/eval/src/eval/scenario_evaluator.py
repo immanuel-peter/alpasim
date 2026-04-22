@@ -103,6 +103,13 @@ class ScenarioEvaluator:
         # Create metrics dataframe with run metadata for aggregation
         clipgt_id = simulation_result.session_metadata.scene_id
         rollout_id = simulation_result.session_metadata.session_uuid
+
+        # Earliest timestamp at which the ego is under policy control (prerun
+        # + force-gt steps excluded).  Used by the aggregation pipeline to
+        # filter out spurious metric events on warmup frames; ``None`` for
+        # ground-truth baseline runs (see GitHub #59).
+        first_driven_timestamp_us = simulation_result.first_driven_timestamp_us
+
         metrics_df = create_metrics_dataframe(
             metric_results=timestep_metrics,
             clipgt_id=clipgt_id,
@@ -110,6 +117,7 @@ class ScenarioEvaluator:
             rollout_id=rollout_id,
             run_uuid=scenario_input.run_uuid,
             run_name=scenario_input.run_name,
+            first_driven_timestamp_us=first_driven_timestamp_us,
         )
 
         return ScenarioEvalResult(
